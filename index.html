@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bin Youn — Trajectory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #F4F0E8;
+      --bg2: #ECE7DD;
+      --fg: #1A1A18;
+      --muted: #9A9690;
+      --border: rgba(26,26,24,0.12);
+      --header-h: 58px;
+      --minimap-h: 82px;
+      --pink: #FF2D9B;
+
+      --c-education: #1A56DB;
+      --c-artwork:   #C2620A;
+      --c-exhibition:#8B3A0F;
+      --c-research:  #1A6E3A;
+      --c-career:    #6B21A8;
+    }
+
+    body {
+      font-family: 'Space Grotesk', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: hidden;
+      height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── HEADER ─────────────────────────────── */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      z-index: 200;
+    }
+
+    .h-left { display: flex; flex-direction: column; gap: 2px; }
+
+    .h-name {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+
+    .h-sub {
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .legend {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .l-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: none;
+      border: none;
+      border-bottom: 1.5px solid transparent;
+      cursor: pointer;
+      padding: 3px 6px;
+      transition: opacity 0.2s, border-color 0.2s;
+    }
+    .l-item:hover { color: var(--fg); }
+    .l-item.hidden-track { opacity: 0.28; }
+    .l-item.hidden-track .l-dot { filter: grayscale(1); }
+
+    .l-dot {
+      width: 7px;
+      height: 7px;
+      flex-shrink: 0;
+    }
+
+    /* ─── NOW BUTTON ─────────────────────────── */
+    .now-btn {
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      background: none;
+      border: 1px solid var(--pink);
+      color: var(--pink);
+      cursor: pointer;
+      padding: 4px 12px;
+      transition: background 0.15s;
+    }
+    .now-btn:hover { background: rgba(255,45,155,0.07); }
+
+    /* ─── TOOLTIP PIN ────────────────────────── */
+    #tooltip.pinned { pointer-events: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.16); }
+    .tt-close {
+      position: absolute;
+      top: 8px; right: 10px;
+      font-size: 0.65rem;
+      color: var(--muted);
+      cursor: pointer;
+      display: none;
+      user-select: none;
+    }
+    #tooltip.pinned .tt-close { display: block; }
+
+    /* ─── TIMELINE CONTAINER ─────────────────── */
+    #tlContainer {
+      position: fixed;
+      top: var(--header-h);
+      left: 0; right: 0;
+      bottom: var(--minimap-h);
+      overflow: hidden;
+      cursor: grab;
+    }
+
+    #tlContainer.dragging { cursor: grabbing; }
+
+    #tlTrack {
+      position: absolute;
+      top: 0; left: 0;
+      height: 100%;
+      will-change: transform;
+    }
+
+    /* ─── PHASE BANDS ───────────────────────── */
+    .phase-band {
+      position: absolute;
+      top: 0; bottom: 0;
+    }
+
+    .phase-label {
+      position: absolute;
+      font-size: 0.55rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* ─── AXIS ──────────────────────────────── */
+    .axis-line {
+      position: absolute;
+      left: 0;
+      height: 1px;
+      background: var(--fg);
+      pointer-events: none;
+    }
+
+    /* ─── YEAR TICKS ────────────────────────── */
+    .year-tick {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .tick-mark {
+      background: var(--fg);
+      width: 1px;
+    }
+
+    .tick-year {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.03em;
+      color: var(--muted);
+      margin-top: 5px;
+      white-space: nowrap;
+    }
+
+    .year-tick.major .tick-year {
+      font-weight: 600;
+      color: var(--fg);
+      font-size: 0.65rem;
+    }
+
+    /* ─── NOW MARKER ────────────────────────── */
+    .now-line {
+      position: absolute;
+      width: 1px;
+      background: var(--pink);
+      pointer-events: none;
+    }
+
+    .now-tag {
+      position: absolute;
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--pink);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* ─── FUTURE DIVIDER ────────────────────── */
+    .future-line {
+      position: absolute;
+      width: 1px;
+      border-left: 1.5px dashed var(--muted);
+      pointer-events: none;
+    }
+
+    .future-tag {
+      position: absolute;
+      font-size: 0.55rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    /* ─── TRACK LABELS (fixed left) ─────────── */
+    .track-label-fixed {
+      position: fixed;
+      left: 10px;
+      font-size: 0.52rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* ─── ITEMS ─────────────────────────────── */
+    .tl-item {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .tl-item:hover { z-index: 100 !important; }
+
+    .tl-card {
+      background: #FDFBF6;
+      border: 1px solid var(--border);
+      border-top-width: 2px;
+      padding: 7px 9px;
+      min-height: 52px;
+      transition: box-shadow 0.15s;
+    }
+
+    .tl-item:hover .tl-card {
+      box-shadow: 0 3px 16px rgba(0,0,0,0.10);
+    }
+
+    .tl-item.future .tl-card {
+      background: var(--bg2);
+      border-style: dashed;
+      border-top-style: dashed;
+    }
+
+    .card-cat {
+      font-size: 0.52rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 3px;
+    }
+
+    .card-title {
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 2px;
+    }
+
+    .card-desc {
+      font-size: 0.58rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .tl-conn {
+      width: 1px;
+      background: var(--border);
+      margin: 0 auto;
+      flex-shrink: 0;
+    }
+
+    .tl-item.future .tl-conn {
+      background: transparent;
+      border-left: 1px dashed var(--muted);
+      width: 0;
+    }
+
+    .tl-dot {
+      width: 7px;
+      height: 7px;
+      margin: 0 auto;
+      flex-shrink: 0;
+      transition: transform 0.15s;
+    }
+
+    .tl-item:hover .tl-dot {
+      transform: scale(1.5);
+    }
+
+    /* ─── TOOLTIP ───────────────────────────── */
+    #tooltip {
+      position: fixed;
+      background: #FDFBF6;
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      max-width: 280px;
+      z-index: 500;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.12s;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.09);
+    }
+
+    #tooltip.show { opacity: 1; }
+
+    .tt-yr {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .tt-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .tt-body {
+      font-size: 0.7rem;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ─── MINIMAP ───────────────────────────── */
+    #minimap {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: var(--minimap-h);
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      cursor: pointer;
+      overflow: hidden;
+    }
+
+    #minimapCanvas {
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    #minimapVp {
+      position: absolute;
+      top: 0; bottom: 0;
+      background: rgba(26,26,24,0.05);
+      border-left: 1px solid rgba(26,26,24,0.18);
+      border-right: 1px solid rgba(26,26,24,0.18);
+      pointer-events: none;
+    }
+
+    /* ─── HEADER WEBSITE LINK ───────────────── */
+    .h-website {
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      transition: color 0.15s;
+    }
+    .h-website:hover { color: var(--fg); border-bottom-color: var(--fg); }
+
+    /* ─── DRAG HINT ─────────────────────────── */
+    #hint {
+      position: fixed;
+      bottom: calc(var(--minimap-h) + 16px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      pointer-events: none;
+      transition: opacity 0.4s;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <div class="h-name">Bin Youn — Trajectory</div>
+    <div class="h-sub">Practice-Based Research · Computational Cosmotechnics of Perception · RMIT University Vietnam</div>
+  </div>
+  <div class="legend" id="trackFilters">
+    <button class="l-item" data-track="education" onclick="toggleTrack('education')"><div class="l-dot" style="background:var(--c-education)"></div>Education</button>
+    <button class="l-item" data-track="artwork"   onclick="toggleTrack('artwork')"  ><div class="l-dot" style="background:var(--c-artwork)"  ></div>Practice</button>
+    <button class="l-item" data-track="exhibition"onclick="toggleTrack('exhibition')"><div class="l-dot" style="background:var(--c-exhibition)"></div>Exhibition</button>
+    <button class="l-item" data-track="research"  onclick="toggleTrack('research')" ><div class="l-dot" style="background:var(--c-research)" ></div>Research</button>
+    <button class="l-item" data-track="career"    onclick="toggleTrack('career')"   ><div class="l-dot" style="background:var(--c-career)"   ></div>Career</button>
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <button class="now-btn" onclick="scrollToNow()">● Now</button>
+    <a href="https://binyoun.com" target="_blank" class="h-website">binyoun.com ↗</a>
+  </div>
+</header>
+
+<div id="tlContainer">
+  <div id="tlTrack"></div>
+</div>
+
+<div id="tooltip">
+  <span class="tt-close" id="ttClose">✕</span>
+  <div class="tt-yr" id="ttYr"></div>
+  <div class="tt-title" id="ttTitle"></div>
+  <div class="tt-body" id="ttBody"></div>
+  <div id="ttLink" style="margin-top:8px; font-size:0.58rem; letter-spacing:0.08em; color:#FF2D9B; opacity:0.8;"></div>
+</div>
+
+<div id="minimap">
+  <canvas id="minimapCanvas"></canvas>
+  <div id="minimapVp"></div>
+</div>
+
+<div id="hint">← drag or scroll to navigate →</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   CONFIG
+═══════════════════════════════════════════ */
+const C = {
+  pxPerYear: 265,
+  startYear: 2008.5,
+  endYear:   2036,
+  padLeft:   160,
+  padRight:  220,
+  axisRatio: 0.46,   // axis Y as fraction of container height
+};
+
+const PHASES = [
+  { id:'foundation', label:'Foundation',    s:2009, e:2018, color:'#E8E3D8' },
+  { id:'mfa',        label:'MFA · CSULB',   s:2018, e:2024, color:'#EFE0C4' },
+  { id:'rmit',       label:'RMIT Vietnam',  s:2024, e:2027, color:'#D0E4F0' },
+  { id:'phd',        label:'PhD',           s:2027, e:2031, color:'#DFD0EE' },
+  { id:'post',       label:'Post-PhD',      s:2031, e:2036.5, color:'#EDE4C8' },
+];
+
+/* offsets = distance from axis to the FAR edge of the card+connector
+   side: 'above' → card grows upward from axis
+         'below' → card grows downward from axis               */
+const TRACKS = {
+  education:  { side:'above', offset:270, color:'#1A56DB', label:'Education'        },
+  artwork:    { side:'above', offset:155, color:'#B45309', label:'Practice'          },
+  exhibition: { side:'above', offset: 58, color:'#92400E', label:'Exhibition / Award'},
+  research:   { side:'below', offset: 78, color:'#166534', label:'Research'          },
+  career:     { side:'below', offset:185, color:'#6B21A8', label:'Career / Position' },
+};
+
+const CARD_H = 54;
+
+/* ═══════════════════════════════════════════
+   DATA
+═══════════════════════════════════════════ */
+const EVENTS = [
+  /* ── EDUCATION ─────────────────────────── */
+  { year:2009.1,  track:'education', xo:-25, title:'DFLHS 23rd',
+    desc:'French / Japanese · Seoul, 2009',
+    detail:'Daewon Foreign Language High School (DFLHS), 23rd graduating class, Seoul, South Korea, February 2009. Major: French / Minor: Japanese. Multilingual foundation — Korean, French, Japanese. Early cross-cultural and language immersion that shapes the transnational research identity: Korea → France → US → Vietnam.' },
+  { year:2015.17, track:'education', xo:25,  title:'HI Media Academy',
+    desc:'Graphic Design · Seoul, 2015',
+    detail:'HI Media Computer Academy, Seoul, South Korea, February–May 2015. Completed Computer Graphic Design program. First formal training in digital design and visual production — precursor to the visual and computational practice that develops through MFA and beyond.' },
+  { year:2017.42, track:'education', xo:-25, title:'Vision Photography',
+    desc:'8 courses · Seoul, Mar–Dec 2017',
+    detail:'Vision Photography Academy, Seoul, South Korea, March–December 2017. Completed 4 Basic + 2 Intermediate + 2 Advanced Photography courses. Attended lectures by contemporary Korean artists as extracurricular activities. Foundational photography training — and first solo exhibition (Be@IT) was held in the same institution\'s gallery, October 2017: student and exhibitor in the same year.' },
+  { year:2011.8, track:'education', title:'Exchange — Paris',
+    desc:'Paris Graduate School of Management',
+    detail:'Exchange semester, Fall 2011. Paris Graduate School of Management, Paris, France. Accepted into the exchange student program from Sungkyunkwan University. Experienced a wide range of cultural events, international museums, galleries, and art fairs across Paris. Resided with a host family and communicated in French on a daily basis — building language fluency and cultural immersion. First sustained international experience outside Korea. Seeds of cross-cultural sensitivity, relational thinking, and aesthetic awareness that run through the research practice today: Korea → France → US → Vietnam.' },
+  { year:2013.1, track:'education', title:'B.A. / B.B.A.',
+    desc:'Sungkyunkwan University · GPA 3.94',
+    detail:'Double degree: B.A. Consumer & Family Sciences + B.B.A. Business Administration. GPA 3.94/4.50 · Dean\'s List. Top Performer Award: Language, Volunteering, IT (Feb 2013). Background in consumer behavior and systems thinking — early foundation for human perception research.' },
+  { year:2018.3, track:'education', title:'MFA — begins',
+    desc:'CSULB · Studio Arts, Photography',
+    detail:'Enrolled M.F.A. Studio Arts with Photography emphasis, California State University Long Beach. Practice expands from lens-based to spatial installation.' },
+  { year:2023.4, track:'education', title:'MFA — Graduated',
+    desc:'Distinguished Achievement in Creative Activity',
+    detail:'M.F.A. Studio Arts, Photography · California State University Long Beach, May 2023. Awarded Distinguished Achievement in Creative Activity. Practice trajectory fully established: Photography → Installation → XR → AI.' },
+  { year:2025.3, track:'education', title:'GCTLT — begins',
+    desc:'RMIT University · 2025–Oct 2026',
+    detail:'Graduate Certificate in Tertiary Learning & Teaching (GCTLT) — professional qualification in higher education pedagogy at RMIT University. Started 2025, completing October 2026. Strengthens research identity as educator-researcher and supports PhD candidature application.' },
+  { year:2026.79, track:'education', title:'GCTLT — Completed',
+    desc:'Certificate · Oct 2026',
+    detail:'Graduate Certificate in Tertiary Learning & Teaching (GCTLT) — completed October 2026, RMIT University. Professional qualification in higher education pedagogy. Key credential supporting PhD candidature and long-term academic career pathway.' },
+  { year:2027.79, track:'education', title:'PhD Candidature',
+    desc:'RMIT Vietnam · Oct 2027',
+    detail:'PhD research begins. Supervisor team TBD — main: Media/Creative Practice; co: Computing/HCI. Working title: Cosmotechnics of Perception. Format: 3–5 major installations + written exegesis. Balance: 40% theory / 60% practice.',
+    future:true },
+
+  /* ── PRACTICE / ARTWORKS ────────────────── */
+  { year:2017.55, track:'artwork', xo:-35, title:'Be@IT',
+    desc:'Solo · Vision Photography Academy, Seoul',
+    detail:'First solo exhibition. Personal relationship with traditional Korean rice cake. Lens-based practice begins with cultural-material inquiry. Vision Photography Academy Hall, Seoul, Oct 2017.' },
+  { year:2017.7,  track:'artwork', xo:35,  title:'Memories of Seoul',
+    desc:'Collaborative photography · Seoul',
+    detail:'Co-produced artwork with travelers — collecting and connecting memories of places in Seoul. Participatory co-creation emerges early. Hanchae Restaurant Gallery, Sep 2017.' },
+  { year:2021.85, track:'artwork', xo:-25, title:'W(AV)E · LiSTeN',
+    desc:'Solo · Shakarian SSC Gallery, CSULB',
+    detail:'Photography expands into spatial installation. Two solo exhibitions at Shakarian Student Success Center Gallery, CSULB, Dec 2021. The lens-based becomes environment-based.' },
+  { year:2021.85, track:'artwork', xo:25,  title:'Natura Naturata',
+    desc:'Solo · Max L. Getov West Gallery',
+    detail:'Solo exhibition, Max L. Getov West Gallery, CSULB, Oct 2021. Super-F-icial S: Shakarian SSC Gallery, Nov 2021. Practice grounded in material and ecological sensitivity.' },
+  { year:2022.1,  track:'artwork', xo:-30, title:'Somatic Blinds',
+    desc:'Solo · Werby Gallery · Feb 2022',
+    detail:'Grow light, vinyl blind, plywood, aircraft wire, Mylar thermal blanket, bird reflective scare tape. "As soon as the vessel became full of floating gas, I turned back." Ecological sensitivity in material choices.' },
+  { year:2022.75, track:'artwork', xo:25,  title:'ㅁotherisland',
+    desc:'Solo · 5-channel video installation',
+    detail:'5-channel video installation with projectors. Island as threshold — mother/land/other. "Entering this time-space, beholders navigate their own landscapes." One of the defining early installations. Shown again at iNVENTX MMU 2025.' },
+  { year:2022.2,  track:'artwork', xo:-20, title:'YOUR LEAVES',
+    desc:'Solo · Shakarian SSC Gallery',
+    detail:'YOUR LEAVES TOUCH MY PLANES — Solo, Shakarian Student Success Center Gallery, Nov 2022. Abyss (w/ Josh Zubkoff): kaleidoscope, mirrors, projectors, Gelora photographs. Open your Window: 4-channel video, aircraft wires, vinyl blinds.' },
+  { year:2023.25, track:'artwork', xo:-28, title:'Breathscape',
+    desc:'Solo · Motors, PETG, dichroic film',
+    detail:'Two human-sized spherical light sculptures — Undulating: Inhale and Exhale — suspended from ceiling, revolving at 1 RPM. Dichroic film transforms PETG into multi-color reflections. Bodily projection. Shakarian SSC Gallery, Apr 2023.' },
+  { year:2023.25, track:'artwork', xo:28,  title:'Projective Verse of ㅇ',
+    desc:'Solo · Max L. Getov East & West',
+    detail:'ㅇ is a sound of water. Inspired by motorcycle trip across Korea — landscape, mountains, oceans, wind. "Landscapes can awaken people to who they are." Photography → landscape → perception environment. Mar 2023.' },
+  { year:2023.7,  track:'artwork', title:'Gelora XR Hub',
+    desc:'XR platform · gelora-xr.xyz',
+    detail:'Ongoing XR practice platform. AR installations, web-based immersive environments, physical-digital hybrid performances. Transforms organic matter (fallen flowers, trees) into hybrid digital creatures through East Asian cosmology. geloracompass, gelora-bagua, gelora-my branches.',
+    link:'https://gelora-xr.xyz' },
+  { year:2025.85, track:'artwork', xo:-25, title:'Sacred Tree',
+    desc:'XR · HOZO City Tết Fest, HCMC',
+    detail:'Participatory XR ritual environment — Summoning Gelora. Spatial audio, body scan, East Asian cosmology. HOZO City Tết Festival, Dec 2025 (CTRL+M Immersive House, HCMC). Clouds Upon The Tree: Vin Gallery, May 2026. ISEA2026 Dubai.' },
+  { year:2026.1,  track:'artwork', xo:25,  title:'Øryn / 륜',
+    desc:'AI media entity · ongoing',
+    detail:'AI-assisted media entity and relational archive being. East Asian cosmology + posthuman presence. AI as relational medium — not tool, not spectacle. The most advanced articulation of the research to date.' },
+  { year:2027.6,  track:'artwork', xo:-28, title:'PhD Install. 1',
+    desc:'Perception Architecture',
+    detail:'RQ: Does modular vs. integrated perception architecture produce different emotional experience in interactive environments?\n\nDesign: Room A (Toegye — modular): each sensor controls a separate light zone independently. Room B (Yulgok — unified): all sensors affect the whole environment as one integrated system.\n\nDeliverable: Installation + documented audience response data + conference paper. Target venue: ISEA or ACM SIGGRAPH Art Gallery.',
+    future:true },
+  { year:2028.7,  track:'artwork', xo:0,   title:'PhD Install. 2',
+    desc:'Hydro-Cultural Memory System',
+    detail:'RQ: How can computational media practice the care and repair of erased ecological and cultural systems?\n\nDesign: HCMC / Mekong delta context. Sensors detect humidity, water level, environmental data. AI reconstructs erased canal histories and disappearing names through responsive light + XR. Connects to Futures of Listening water practice.\n\nDeliverable: Site-specific installation (HCMC context) + journal article submission.',
+    future:true },
+  { year:2029.6,  track:'artwork', xo:28,  title:'PhD Install. 3',
+    desc:'Perception Boundary Generator',
+    detail:'RQ: How does perception architecture create and dissolve the boundary between self and other?\n\nDesign: Dynamic light boundaries appear based on viewer proximity. Self vs. other emerges visually in real time. Connects island/otherness/boundary/사단칠정 framework with embodied cognition research.\n\nDeliverable: Major international exhibition submission (Ars Electronica target) + exegesis chapter.',
+    future:true },
+
+  /* ── EXHIBITIONS & AWARDS ───────────────── */
+  { year:2022.85, track:'exhibition', xo:-30, title:'USU Art Purchase',
+    desc:'Warmest Night · CSULB',
+    detail:'University Student Union Art Purchase Award for Warmest Night — Gelora printed on velvet fabric, dried branch, wood frame with glass. 6×9×2 in. Permanent collection, CSULB.' },
+  { year:2022.9,  track:'exhibition', xo:30,  title:'2nd Place',
+    desc:'Here, There, Nowhere · U Montana',
+    detail:'Second Place in juried exhibition by University of Montana & Montana State University. Online exhibition.' },
+  { year:2023.4,  track:'exhibition', xo:-30, title:'Dist. Achievement',
+    desc:'CSULB · Creative Activity Award',
+    detail:'Distinguished Achievement in Creative Activity Award, California State University Long Beach, 2023. Marks MFA graduation and peak of practice before transition to Vietnam.' },
+  { year:2023.5,  track:'exhibition', xo:30,  title:'Visions of Motherhood',
+    desc:'The Luupe · Online Showcase 2023',
+    detail:'Featured artist on Visions of Motherhood curated by The Luupe, 2023. Photography: "I am missing their warmth from 5,968 miles away." studio.theluupe.com' },
+  { year:2025.65, track:'exhibition', xo:-30, title:'Silver & Bronze',
+    desc:'iNVENTX · MMU Malaysia',
+    detail:'Silver & Bronze Awards at iNVENTX Creative Exhibition 2025, Faculty of Creative Multimedia, Multimedia University, Cyberjaya, Malaysia. Gelora: Embodied Alienation in ㅁotherisland (Corner Ver.), Jul–Aug 2025.' },
+  { year:2025.75, track:'exhibition', xo:30,  title:'RMIT Leadership Kudos',
+    desc:'Passion & Inclusion Awards ×2',
+    detail:'"Creativity, scholarship, and collaborative spirit on full display, representing SCD with passion and excellence on international stage." RMIT Leadership Kudos ×2 (Passion + Inclusion), 2025.' },
+  { year:2026.3,  track:'exhibition', xo:-28, title:'Fabric Narratives',
+    desc:'IFFIT 2026 · Tẻ Canal, HCMC',
+    detail:'Fabric Narratives: Merging Art, Environment, and Heritage at the Tẻ Canal — collaborative installation, IFFIT 2026, Ho Chi Minh City, April 16, 2026. Site-specific work at the Tẻ Canal, engaging with the waterway as both material and cultural context.' },
+  { year:2026.37, track:'exhibition', xo:-25, title:'Clouds Upon The Tree',
+    desc:'Vin Gallery, HCMC · May 2026',
+    detail:'Sacred Tree — group show, Vin Gallery, Ho Chi Minh City, May 16–17, 2026. Invited group exhibition.' },
+  { year:2026.1,  track:'exhibition', xo:25,  title:'ISEA2026 Accepted',
+    desc:'Dubai · Counting Cultural Stars',
+    detail:'Accepted workshop: Counting Cultural Stars — Transforming Cultural Texts into Volumetric Constellations. ISEA2026, Dubai, UAE. Cultural texts mapped into spatial, star-like formations.' },
+
+  /* ── RESEARCH ───────────────────────────── */
+  { year:2025.88, track:'research', xo:-30, title:'ICWL 2025',
+    desc:'Dialogue-Centered Framework · Hong Kong',
+    detail:'Published: "A Dialogue-Centered Framework for Reducing Transactional Distance in Online Photography Education." Co-authored with Suren. 24th International Conference on Web-Based Learning (ICWL 2025), Hong Kong, November 2025. First peer-reviewed research output from RMIT Vietnam position.' },
+  { year:2025.65, track:'research', xo:30,  title:'APARN 2025',
+    desc:'Talk: Reimagining Communities',
+    detail:'Talk at Asia Pacific Artistic Research Network 2025 — Reimagining Communities. Connects practice-based research to regional media art discourse.' },
+  { year:2026.02, track:'research', xo:-25, title:'ETLTC 2026',
+    desc:'Learning to ASCEND · Fukushima, Japan',
+    detail:'Paper: "Learning to ASCEND: Immersive Pedagogy for Educational and Societal Transformation." Co-authored with Suren. ETLTC 2026, Fukushima, Japan. Q1 Journal, Citation Score 8.5. Builds on the re-root framework — bridges teaching innovation and practice-based research identity.' },
+  { year:2026.2,  track:'research', xo:-22, title:'TPC · ICCM 2026',
+    desc:'Technical Program Committee Member',
+    detail:'Technical Program Committee Member, ICCM 2026 (International Conference on Computational Media). Reviewer role — evaluating submitted research papers for the conference program.' },
+  { year:2026.27, track:'research', xo:22,  title:'ICCM 2026',
+    desc:'rễ-root · Gelora Mycelium Network',
+    detail:'Two papers submitted: rễ-root (exhibition-centered pedagogy / re-root framework) and Gelora Mycelium Network (Digital Mycelium — computational media art). ICCM 2026. Deadline: April 1, 2026. Technical Program Committee — Reviewer, ICCM 2026.' },
+  { year:2026.42, track:'research', xo:-22, title:'TPC · ICAIHE 2026',
+    desc:'Technical Program Committee Member',
+    detail:'Technical Program Committee Member, ICAIHE 2026 (International Conference on AI in Higher Education), Waseda University, Tokyo, July 8–10, 2026. Reviewer role — evaluating submitted research papers for the conference program.' },
+  { year:2026.52, track:'research', xo:22,  title:'AICA 2026',
+    desc:'Workshop @ ICAIHE 2026 · Waseda, Jul',
+    detail:'Workshop Chair: AI-Enhanced Pedagogy for Creative Arts and Media Education. AICA 2026 — workshop hosted at ICAIHE 2026, Waseda University, Tokyo, July 8–10, 2026. Published in Springer CCIS proceedings. Co-chair: Dr. Patrick Hartono. Technical Program Committee Member, ICAIHE 2026.' },
+  { year:2028.6,  track:'research', xo:-28, title:'Journal Article 1',
+    desc:'Target: Leonardo · MIT Press',
+    detail:'First journal article. Target: Leonardo (MIT Press) — primary outlet for media art + computational research. Connecting Cosmotechnics of Perception with practice-based findings from PhD Installation 1.',
+    future:true },
+  { year:2029.7,  track:'research', xo:28,  title:'Journal Article 2',
+    desc:'Target: Digital Creativity',
+    detail:'Second journal article. Practice-based research contribution: interactive installations as experimental platforms for computational perception and cognition research. Completing the dual-publication requirement.',
+    future:true },
+  { year:2030.3,  track:'research', title:'PhD Exegesis',
+    desc:'Submission & Examination',
+    detail:'Written exegesis + PhD examination.\n\nPrimary RQ: How can cultural models of perception — drawn from East Asian cognitive philosophy — be translated into computational interaction systems and explored through practice-based media installations?\n\nTheoretical contribution: East Asian cognitive philosophy (사단칠정, Cosmotechnics, 퇴계 vs 율곡) as design framework for computational perception systems.\nPractice contribution: 3 major installations as primary research instruments + documented audience data.\nTarget: 2 journal publications (Leonardo, Digital Creativity) prior to submission.',
+    future:true },
+
+  /* ── CAREER / POSITION ──────────────────── */
+  { year:2025.45, track:'career', title:'Photo Workshops',
+    desc:'IPL/WIL · RMIT Vietnam 2025',
+    detail:'Photography Workshops — Industry Partnership Learning (IPL) / Work Integrated Learning (WIL) component at RMIT Vietnam. Projects: Food Photography (Mervin TF Lee, industry partner), Fashion Photography (RICOH Vietnam sponsor). Students work on real briefs with professional partners. Embedded within Creative Photography and Photo 101 courses, 2025.' },
+  /* ── EARLY CAREER — KOREA ───────────────── */
+  { year:2009.62, track:'career', xo:-25, title:'HI Club Leader',
+    desc:'Tour & Culture · Seoul, 2009–2010',
+    detail:'Tour & Culture Team Leader, HI Club (International Student Association), Seoul, South Korea, March 2009–December 2010. Organized and coordinated tours and cultural events for foreign exchange students. Early cross-cultural leadership and community-building role during undergraduate years at Sungkyunkwan.' },
+  { year:2010.5,  track:'career', xo:25,  title:'TA · Sungkyunkwan',
+    desc:'Architecture · Jun–Jul 2010',
+    detail:'Teaching & Administrative Assistant, Sungkyunkwan University, Seoul, South Korea, June–July 2010. International Summer Semester TA for Prof. Joseph Juhasz (Architecture). Courses: City Design and Renewal; Creative Mind in Life. Managed cultural events and extracurricular activities. Earliest formal teaching role.' },
+  { year:2012.75, track:'career', xo:-28, title:'Photo/Video Assistant',
+    desc:'Prop Image Studio · Seoul',
+    detail:'Photo/Video Assistant, Prop Image Studio, Seoul, South Korea, July 2012–March 2013. Assisted with shooting commercial and wedding photos on weekends. First hands-on professional photography industry experience — direct exposure to commercial image-making practice.' },
+  { year:2013.5,  track:'career', xo:28,  title:'Robert Capa Exhibition',
+    desc:'Supporter · DtoC, Seoul',
+    detail:'Robert Capa Photo Exhibition Supporter, DtoC, Seoul, South Korea, June–July 2013. Organized and created online viral marketing. Curated the English portion of the exhibition. First curatorial and arts administration role — early sign of the educator-curator-artist arc.' },
+  { year:2013.88, track:'career', xo:-28, title:'English Tutor',
+    desc:'Chungsol Academy · Seoul, 2013–14',
+    detail:'English Tutor, Chungsol Academy, Seoul, South Korea, May 2013–May 2014. Tutored English for Korean high school students. One of several sustained teaching roles during the post-BA/BBA years — consistent teaching as a parallel professional track before the MFA.' },
+  { year:2014.65, track:'career', xo:25,  title:'Printing Consultant',
+    desc:'Korea Study Information · Gyeonggi',
+    detail:'Overseas Printing Consultant, Korea Study Information, Gyeonggi, South Korea, June 2014–January 2015. Managed overseas sales and marketing. Oversaw printing process and verified orders. Business and operations experience alongside developing visual and educational practice.' },
+  { year:2016.5,  track:'career', xo:0,   title:'English Tutor',
+    desc:'Edurak · Seoul, Feb–Dec 2016',
+    detail:'English Tutor, Edurak, Seoul, South Korea, February–December 2016. Taught self-directed learning, English grammar, and reading for Korean middle school students.' },
+  { year:2017.85, track:'career', xo:28,  title:'English Tutor',
+    desc:'Cheongdam Cluville · Seoul, 2017–18',
+    detail:'English Tutor, Cheongdam Cluville Academy, Seoul, South Korea, October 2017–May 2018. Tutored English grammar and reading for Korean elementary school students. Ran concurrently with first solo exhibitions (Be@IT, Memories of Seoul, Oct–Sep 2017) and preparation for US MFA.' },
+  { year:2019.42, track:'career', xo:-25, title:'Photography Instructor',
+    desc:'Vision Photography Institute · Seoul',
+    detail:'Instructor — Vision Photography Institute, Seoul, South Korea, May 2019–July 2020. Taught Intermediate Digital Photography, Advanced Composition and Visual Storytelling. First dedicated photography teaching role — teaching at the same institution where foundational photography education was received (2017).' },
+  { year:2020.5,  track:'career', xo:25,  title:'CIS Supervisor',
+    desc:'Canada Int\'l School · Gyeonggi',
+    detail:'Supervisor, Canada International School, Gyeonggi, South Korea, March 2020–June 2021. Supervised classes: 5–7 year olds, ESL, 4th–6th grade. Observed foreign teachers and students. Counselled with parents, organized conferences and open classes. Tutored English grammar and reading. COVID period — returned to Korea during the pandemic before relocating to the US for MFA.' },
+
+  /* ── US PROFESSIONAL EXPERIENCE ─────────── */
+  { year:2021.54, track:'career', xo:-28, title:'ANDLAB Gallery',
+    desc:'Marketing Assistant · LA, Jul 2021',
+    detail:'Marketing Assistant, ANDLAB Gallery, Los Angeles, CA, July 2021. Assisted and planned gallery exhibitions and promotions. Assisted and coordinated shows and artists. First US arts administration role — bridging gallery practice, curatorial work, and photography.' },
+  { year:2021.35, track:'career', xo:28,  title:'Freelance Photographer',
+    desc:'LA · Hollywood · SF · 2021–2023',
+    detail:'Freelance Photographer, Los Angeles, Hollywood & San Francisco, California, 2021–2023. SK Innovation Conference event photography, San Francisco (2021). Album photography for Se-Hwang Kim, Los Angeles. Event photography for Benefit Night: Afterburner, Hollywood. Commercial photography practice running alongside MFA studio work.' },
+  { year:2022.42, track:'career', xo:-28, title:'GLAMFA',
+    desc:'Curator · Treasurer · Photographer',
+    detail:'GLAMFA — Fine Art Roundtable for Greater Los Angeles M.F.A., California State University Long Beach, January 2022–February 2023. Curator & Juror (Nov 2022–Feb 2023). Treasurer (Aug 2022–Feb 2023). Photographer (Jan 2022, Jan 2023). Organizational and curatorial leadership role within the regional MFA community.' },
+  { year:2023.62, track:'career', xo:-22, title:'Two Hands America',
+    desc:'Operation Manager · Aug–Oct 2023',
+    detail:'Operation Manager, Two Hands America, Inc., USA, August–October 2023. Managed overall operations of Two Hands Corn Dogs local locations. Supported new opening locations across other states. Ran concurrently with CSULB TA position — bridging creative and operational work during post-MFA transition.' },
+  { year:2023.9,  track:'career', xo:20,  title:'Two Hands + Design',
+    desc:'Op Manager & Graphic Designer · Nov 2023–May 2024',
+    detail:'Operation Manager & Graphic Designer, Two Hands America, Inc., Downey, CA, November 2023–May 2024. Managed social media and community-based marketing campaigns. Designed and formalized marketing campaigns and operational manuals. Created construction artworks for window graphics and barricades.' },
+
+  /* ── CSULB WORK EXPERIENCE ──────────────── */
+  { year:2021.62, track:'career', xo:-28, title:'Photo Lab · CSULB',
+    desc:'Instructional Student Assistant',
+    detail:'Instructional Student Assistant — Photo Lab, California State University Long Beach, August 2021–May 2023. Operated professional digital printers for class projects and exhibitions. Maintained photo equipment, chemicals, and lab safety standards. Ran concurrently with MFA studies — first sustained teaching-adjacent role.' },
+  { year:2022.65, track:'career', xo:0,   title:'TA · Photography',
+    desc:'CSULB ART241 · Aug–Dec 2022',
+    detail:'Teaching Assistant — ART241 Introduction to Photography, Professor Kyle Riedel, California State University Long Beach, August–December 2022. Supporting studio-based photography instruction. First formal TA role.' },
+  { year:2023.08, track:'career', xo:-28, title:'Instructor · Photo',
+    desc:'CSULB ART241 · Jan–May 2023',
+    detail:'Instructor of Record — ART241 Introduction to Digital Photography, California State University Long Beach, January–May 2023. 19 students. Taught history of photography and digital photography fundamentals. First solo teaching position, concurrent with final MFA graduation semester.' },
+  { year:2023.7,  track:'career', xo:28,  title:'TA · Graphic Design',
+    desc:'CSULB ART420 · 2023–2024',
+    detail:'Teaching Assistant — ART420 Graphic Design Workshop, Professor Sunook Park, California State University Long Beach. Fall 2023 (Aug–Dec) and Spring 2024 (Jan–May). Post-MFA employment during US–Vietnam transition year. Broadened teaching range from photography into design.' },
+
+  { year:2025.25, track:'career', xo:-28, title:'Associate Lecturer',
+    desc:'RMIT Vietnam · Mar 2025',
+    detail:'Joined RMIT University Vietnam, School of Communication & Design as Associate Lecturer, March 2025. Teaching Photography & Digital Media. Courses: Creative Photography, Photo 101, Professional Practice.' },
+  { year:2025.7,  track:'career', xo:28,  title:'Course Coordinator',
+    desc:'RMIT Vietnam · Jul 2025',
+    detail:'Promoted to Course Coordinator, RMIT University Vietnam, July 2025. Coordinating curriculum development, managing teaching teams, quality assurance.' },
+  { year:2025.85, track:'career', xo:-20, title:'Beyond 1&0',
+    desc:'Art Director · 73 artists, HCMC',
+    detail:'Art Director for Beyond 1&0 Exhibition, Nina Next Space, HCMC, September 2025. 73 artists, 34 artworks, 14 mediums, 4 performances, 2 cities. ACM SIGGRAPH DAC SPARKS Co-Moderator, Jan 2026.' },
+  { year:2026.22, track:'career', xo:-20, title:'Experience Day',
+    desc:'Pocket Studio · 9.9/10 satisfaction',
+    detail:'Experience Day 2026 — Pocket Studio workshop, RMIT University Vietnam. Workshop satisfaction score: 9.9/10. Showcasing creative photography practice to prospective students and the wider RMIT community. Demonstrates teaching quality and public engagement alongside research-practice identity.' },
+  { year:2026.05, track:'career', xo:20,  title:'M-NODE',
+    desc:'DIMA Korea × RMIT Vietnam',
+    detail:'M-NODE: Cross-Cultural Hackathon — Organizer & Moderator. DIMA Korea × RMIT Vietnam, January 2026. www.mnode.onl — Building Asia-Pacific collaborative network for creative computing.',
+    link:'https://www.mnode.onl' },
+  { year:2031.0,  track:'career', xo:-28, title:'Post-PhD Mobility',
+    desc:'HK / Singapore / North America',
+    detail:'Target: Associate Lecturer/Professor track at CityU Hong Kong, NTU/NUS Singapore, or North American media art + technology programs (e.g. MIT Media Lab affiliates, interdisciplinary computing + arts departments). Portable research identity: Computational Cosmotechnics.',
+    future:true },
+  { year:2033.5,  track:'career', xo:28,  title:'Professor Track',
+    desc:'Computational Perception Lab',
+    detail:'Target: Associate/Full Professor. Director of Computational Perception Lab (or Cultural AI and Interactive Systems Lab). Mentor PhD students in East Asian philosophy + computational media. Build UNESCO / international organization connections via SDG 11 (urban ecology) framing.',
+    future:true },
+
+  /* ── MISSING EXHIBITIONS ─────────────────── */
+  { year:2023.43, track:'exhibition', xo:-20, title:'Flourish & Flow',
+    desc:'Ventura County · May–Jun 2023',
+    detail:'Flourish & Flow group exhibition, Atrium Gallery, Ventura County Government Center, California, May–June 2023.' },
+  { year:2023.52, track:'exhibition', xo:20,  title:'President House Select',
+    desc:'CSULB Miller House · Jul 2023–24',
+    detail:'CSULB President House Selection — work displayed at Miller House, California, July 2023–July 2024. Year-long selection from MFA graduating cohort.' },
+  { year:2023.73, track:'exhibition', xo:-22, title:'Exchanges',
+    desc:'UW Eau Claire · Sep–Oct 2023',
+    detail:'Exchanges: Dialogues Between Poetry and Art. Ruth Foster Gallery, University of Wisconsin–Eau Claire, September–October 2023. Work selected: Somatic Blinds (poem).' },
+  { year:2024.15, track:'exhibition', xo:-25, title:'Let it Linger',
+    desc:'Max L. Gatov Gallery · Feb 2024',
+    detail:'Group exhibition, Max L. Gatov Gallery, California State University Long Beach, February 2024. Post-MFA year — maintaining presence in California gallery circuit during geographic transition.' },
+  { year:2024.38, track:'exhibition', xo:25,  title:'Our Common Ground',
+    desc:'The Little Gallery · Apr–May 2024',
+    detail:'Our Common Ground group exhibition, The Little Gallery, California, April–May 2024. Final California show before Vietnam relocation. Post-MFA transition period.' },
+  { year:2025.87, track:'exhibition', xo:28,  title:'Evolving Matter',
+    desc:'E-Gallery, MMU · Nov 2025',
+    detail:'Evolving Matter: Artistic Process as Experimental Inquiry. E-Gallery, Faculty of Creative Multimedia, Multimedia University (MMU), Cyberjaya, Malaysia. November 10–28, 2025. Work: Gelora Mycelium Network. Part of ongoing Malaysia–Vietnam research-practice exchange.' },
+
+  /* ── FUTURES OF LISTENING / LISTENING WATER ── */
+  { year:2026.33, track:'research', xo:-28, title:'Futures of Listening',
+    desc:'Water Knowledge · Seoul–HCMC',
+    detail:'Futures of Listening: Water Knowledge from Two Cities. International collaboration with Prof. Suk-Jun Kim, PhD, University of Aberdeen. Explores water knowledge and sonic/listening practice across Seoul and Ho Chi Minh City. Connected to hydrophone practice at Sonic Nomad, Seoul. Grounds the hydro-cultural memory thread in PhD Installation 2.' },
+  /* ── PhD PREPARATION & MILESTONES ────────── */
+  { year:2026.82, track:'education', title:'PhD Application',
+    desc:'RMIT University · internal pathway',
+    detail:'PhD application submitted — RMIT University (internal preferred pathway). Package: full research proposal (Cosmotechnics of Perception), practice portfolio, supervisor agreements. Key: confirm supervisor team (main: Media/Creative Practice; co: Computing/HCI — TBD). Leverage AICA 2026, ISEA2026, and teaching record as evidence of research readiness.',
+    future:true },
+  { year:2027.65, track:'research', xo:-28, title:'Literature Review',
+    desc:'PhD Year 1 · written chapter',
+    detail:'Deliverable: Written literature review chapter.\n\nCore reading: Yuk Hui (Cosmotechnics), McLuhan (Media Ecology), Hayles + Braidotti (Posthumanism), Bourriaud (Relational Aesthetics), Merleau-Ponty (Embodied Cognition).\nEast Asian philosophy: 사단칠정 (사단 / 칠정), 퇴계 vs 율곡 debate, 리 / 기 mapping to algorithm / data.\nAI alignment parallel: Constitutional AI (Anthropic) vs RLHF (OpenAI) as 퇴계 vs 율곡 analogy.',
+    future:true },
+  { year:2028.28, track:'research', xo:28,  title:'Confirmation Hearing',
+    desc:'Candidature confirmed · Year 2',
+    detail:'PhD Confirmation of Candidature hearing. Panel reviews: research question, methodology, literature review, Installation 1 documentation.\n\nResearch questions to present:\n1. How can cultural models of perception be translated into computational interaction systems?\n2. How do perception architectures (modular vs. integrated) influence emotional response?\n3. Can media installations function as experimental platforms for computational perception research?\n4. How does the SEA urban context (HCMC, Mekong) constitute — not just host — this research?\n\nDeliverable: 10,000-word confirmation document + Installation 1 documentation.',
+    future:true },
+];
+
+/* ═══════════════════════════════════════════
+   OVERLAP STATE (module-level for minimap access)
+═══════════════════════════════════════════ */
+let _resolvedCx   = new Map();
+const hiddenTracks = new Set();
+let tooltipPinned  = false;
+let _mdX = 0, _mdY = 0;
+
+/* ═══════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════ */
+const tlContainer = document.getElementById('tlContainer');
+const tlTrack     = document.getElementById('tlTrack');
+const tooltip     = document.getElementById('tooltip');
+const ttYr        = document.getElementById('ttYr');
+const ttTitle     = document.getElementById('ttTitle');
+const ttBody      = document.getElementById('ttBody');
+const minimapEl     = document.getElementById('minimap');
+const minimapCanvas = document.getElementById('minimapCanvas');
+const minimapVp     = document.getElementById('minimapVp');
+const ttLink        = document.getElementById('ttLink');
+
+function yearToX(yr) {
+  return C.padLeft + (yr - C.startYear) * C.pxPerYear;
+}
+
+function totalWidth() {
+  return C.padLeft + (C.endYear - C.startYear) * C.pxPerYear + C.padRight;
+}
+
+function containerH() {
+  return tlContainer.getBoundingClientRect().height;
+}
+
+function axisY() {
+  return containerH() * C.axisRatio;
+}
+
+function headerH() {
+  return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--header-h'));
+}
+
+/* ═══════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════ */
+function render() {
+  tlTrack.innerHTML = '';
+  const TW  = totalWidth();
+  const CH  = containerH();
+  const AY  = axisY();
+  const HH  = headerH() || 58;
+
+  tlTrack.style.width  = TW + 'px';
+  tlTrack.style.height = CH + 'px';
+
+  // ── Phase bands
+  PHASES.forEach(p => {
+    const x1 = yearToX(p.s), x2 = yearToX(p.e);
+    const band = el('div', 'phase-band', {
+      left: x1 + 'px', width: (x2 - x1) + 'px',
+      background: p.color, opacity: '0.6',
+    });
+    tlTrack.appendChild(band);
+
+    const lbl = el('div', 'phase-label', {
+      left: (x1 + 10) + 'px', top: (AY + 18) + 'px',
+    });
+    lbl.textContent = p.label;
+    tlTrack.appendChild(lbl);
+  });
+
+  // ── Axis
+  const axis = el('div', 'axis-line', {
+    top: AY + 'px', width: TW + 'px',
+  });
+  tlTrack.appendChild(axis);
+
+  // ── Year ticks
+  for (let y = Math.ceil(C.startYear); y <= C.endYear; y++) {
+    const isMajor = y % 5 === 0;
+    const tick = el('div', 'year-tick' + (isMajor ? ' major' : ''), {
+      left: yearToX(y) + 'px', top: AY + 'px',
+    });
+    const mark = el('div', 'tick-mark', { height: (isMajor ? 10 : 5) + 'px' });
+    const lbl  = el('div', 'tick-year');
+    lbl.textContent = y;
+    tick.appendChild(mark);
+    tick.appendChild(lbl);
+    tlTrack.appendChild(tick);
+  }
+
+  // ── NOW marker (March 2026 ≈ 2026.22)
+  const nowX = yearToX(2026.22);
+  const nowLine = el('div', 'now-line', {
+    left: nowX + 'px', top: (AY - 44) + 'px', height: '88px',
+  });
+  tlTrack.appendChild(nowLine);
+  const nowTag = el('div', 'now-tag', {
+    left: nowX + 'px', top: (AY - 60) + 'px',
+  });
+  nowTag.textContent = 'Now';
+  tlTrack.appendChild(nowTag);
+
+  // ── Future divider (2027)
+  const futureX = yearToX(2027);
+  const futLine = el('div', 'future-line', {
+    left: futureX + 'px', top: '0', height: CH + 'px',
+  });
+  tlTrack.appendChild(futLine);
+  const futTag = el('div', 'future-tag', {
+    left: futureX + 'px', top: '12px',
+  });
+  futTag.textContent = 'Future →';
+  tlTrack.appendChild(futTag);
+
+  // ── Resolve per-track overlaps (prevent card collisions)
+  const CARD_W = 124, OVERLAP_PAD = 10;
+  const _byTrack = {};
+  EVENTS.forEach(ev => {
+    if (hiddenTracks.has(ev.track)) return;
+    if (!_byTrack[ev.track]) _byTrack[ev.track] = [];
+    _byTrack[ev.track].push({ ev, cx: yearToX(ev.year) + (ev.xo || 0) });
+  });
+  Object.values(_byTrack).forEach(list => {
+    list.sort((a, b) => a.cx - b.cx);
+    for (let pass = 0; pass < 60; pass++) {
+      let moved = false;
+      for (let k = 0; k < list.length - 1; k++) {
+        const need = CARD_W + OVERLAP_PAD;
+        const gap  = list[k+1].cx - list[k].cx;
+        if (gap < need) {
+          const half = (need - gap) / 2;
+          list[k].cx   -= half;
+          list[k+1].cx += half;
+          moved = true;
+        }
+      }
+      if (!moved) break;
+    }
+  });
+  _resolvedCx = new Map();
+  Object.values(_byTrack).forEach(list => list.forEach(({ev, cx}) => _resolvedCx.set(ev, cx)));
+
+  // ── Items
+  EVENTS.forEach(ev => {
+    if (hiddenTracks.has(ev.track)) return;
+    const td    = TRACKS[ev.track];
+    const isAbo = td.side === 'above';
+    const xBase = _resolvedCx.get(ev);
+    const isFut = !!ev.future;
+    const W     = CARD_W;
+    const connH = Math.max(8, td.offset - CARD_H);
+
+    const trackZ = { exhibition:15, research:14, artwork:10, career:8, education:6 };
+    const item = el('div', 'tl-item' + (isFut ? ' future' : ''), {
+      left:   (xBase - W / 2) + 'px',
+      top:    (isAbo ? AY - td.offset : AY) + 'px',
+      width:  W + 'px',
+      height: td.offset + 'px',
+      zIndex: String(trackZ[ev.track] || 10),
+    });
+
+    const catLabel = {
+      education:'Education', artwork:'Practice',
+      exhibition:'Exhibition', research:'Research', career:'Career'
+    }[ev.track] || ev.track;
+
+    const linkBadge = ev.link ? `<span style="float:right;font-size:0.5rem;opacity:0.6;">↗</span>` : '';
+    const cardHtml = `
+      <div class="tl-card" style="border-top-color:${td.color}; height:${CARD_H}px; overflow:hidden; cursor:${ev.link ? 'pointer' : 'default'};">
+        <div class="card-cat" style="color:${td.color}">${catLabel}${linkBadge}</div>
+        <div class="card-title">${ev.title}</div>
+        <div class="card-desc">${ev.desc}</div>
+      </div>`;
+
+    const connHtml = `<div class="tl-conn" style="height:${connH}px;${isFut?' background:transparent; border-left:1px dashed rgba(26,26,24,0.2); width:0;':''}"></div>`;
+
+    const dotColor = isFut ? '#C8C3BB' : td.color;
+    const dotHtml  = `<div class="tl-dot" style="background:${dotColor}; border: 1.5px solid ${td.color};"></div>`;
+
+    item.innerHTML = isAbo
+      ? cardHtml + connHtml + dotHtml
+      : dotHtml + connHtml + cardHtml;
+
+    // Tooltip
+    const _showTip = (e) => {
+      const yr = Math.floor(ev.year);
+      ttYr.textContent    = isFut ? `${yr} — Planned` : String(yr);
+      ttTitle.textContent = ev.title;
+      ttTitle.style.color = td.color;
+      ttBody.textContent  = ev.detail || ev.desc;
+      ttLink.textContent  = ev.link ? '↗ click to open' : '';
+      tooltip.classList.add('show');
+      placeTooltip(e);
+    };
+    item.addEventListener('mouseenter', e => { if (!tooltipPinned) _showTip(e); });
+    item.addEventListener('mousemove',  e => { if (!tooltipPinned) placeTooltip(e); });
+    item.addEventListener('mouseleave', () => { if (!tooltipPinned) tooltip.classList.remove('show'); });
+
+    // Click: open link OR pin/unpin tooltip
+    item.addEventListener('mousedown', e => { _mdX = e.clientX; _mdY = e.clientY; });
+    item.addEventListener('click', e => {
+      if (Math.hypot(e.clientX - _mdX, e.clientY - _mdY) >= 6) return;
+      if (ev.link) { window.open(ev.link, '_blank'); return; }
+      tooltipPinned = !tooltipPinned;
+      tooltip.classList.toggle('pinned', tooltipPinned);
+      if (tooltipPinned) { _showTip(e); } else { tooltip.classList.remove('show'); }
+    });
+
+    tlTrack.appendChild(item);
+  });
+
+  // ── Fixed track labels
+  document.querySelectorAll('.track-label-fixed').forEach(n => n.remove());
+  Object.entries(TRACKS).forEach(([key, td]) => {
+    if (hiddenTracks.has(key)) return;
+    const isAbo = td.side === 'above';
+    const absY  = HH + (isAbo ? AY - td.offset + 6 : AY + td.offset - CARD_H + 6);
+    const lbl   = document.createElement('div');
+    lbl.className = 'track-label-fixed';
+    lbl.textContent = td.label;
+    lbl.style.top   = absY + 'px';
+    lbl.style.color = td.color + '88';
+    document.body.appendChild(lbl);
+  });
+
+  updateMinimap();
+}
+
+function el(tag, cls, styles) {
+  const d = document.createElement(tag);
+  if (cls) d.className = cls;
+  if (styles) Object.assign(d.style, styles);
+  return d;
+}
+
+function placeTooltip(e) {
+  const W = 280, H = 160;
+  let x = e.clientX + 18, y = e.clientY + 18;
+  const mmH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--minimap-h')) || 82;
+  if (x + W > window.innerWidth - 8)  x = e.clientX - W - 18;
+  if (y + H > window.innerHeight - mmH - 8) y = e.clientY - H - 18;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top  = y + 'px';
+}
+
+/* ═══════════════════════════════════════════
+   SCROLL + MOMENTUM
+═══════════════════════════════════════════ */
+let scrollX = 0, isDrag = false, dragX0 = 0, dragS0 = 0;
+let _velX = 0, _lastMX = 0, _lastMT = 0, _rafId = null;
+
+function setScroll(x) {
+  const max = totalWidth() - window.innerWidth;
+  scrollX = Math.max(0, Math.min(x, max));
+  tlTrack.style.transform = `translateX(${-scrollX}px)`;
+  updateMinimap();
+}
+
+function _smoothScrollTo(target, dur) {
+  cancelAnimationFrame(_rafId);
+  const duration = dur || 600;
+  const start = scrollX, dist = target - start, t0 = performance.now();
+  function tick(now) {
+    const p = Math.min((now - t0) / duration, 1);
+    const ease = p < 0.5 ? 2*p*p : -1 + (4 - 2*p) * p;
+    setScroll(start + dist * ease);
+    if (p < 1) _rafId = requestAnimationFrame(tick);
+  }
+  _rafId = requestAnimationFrame(tick);
+}
+
+function _startMomentum(v) {
+  cancelAnimationFrame(_rafId);
+  (function tick() {
+    v *= 0.93;
+    if (Math.abs(v) < 0.4) return;
+    setScroll(scrollX + v);
+    _rafId = requestAnimationFrame(tick);
+  })();
+}
+
+function scrollToNow() {
+  _smoothScrollTo(yearToX(2026.22) - window.innerWidth / 2);
+}
+
+tlContainer.addEventListener('mousedown', e => {
+  cancelAnimationFrame(_rafId);
+  isDrag = true; dragX0 = e.clientX; dragS0 = scrollX;
+  _lastMX = e.clientX; _lastMT = performance.now(); _velX = 0;
+  tlContainer.classList.add('dragging');
+  e.preventDefault();
+});
+document.addEventListener('mousemove', e => {
+  if (!isDrag) return;
+  const now = performance.now(), dt = now - _lastMT;
+  if (dt > 0) _velX = (e.clientX - _lastMX) / dt;
+  _lastMX = e.clientX; _lastMT = now;
+  setScroll(dragS0 - (e.clientX - dragX0));
+});
+document.addEventListener('mouseup', () => {
+  if (!isDrag) return;
+  isDrag = false;
+  tlContainer.classList.remove('dragging');
+  if (Math.abs(_velX) > 0.1) _startMomentum(-_velX * 16);
+});
+
+tlContainer.addEventListener('wheel', e => {
+  e.preventDefault();
+  cancelAnimationFrame(_rafId);
+  setScroll(scrollX + e.deltaY * 1.8 + e.deltaX * 1.8);
+}, { passive: false });
+
+let tx0 = 0, ts0 = 0, _tvx = 0, _tlt = 0;
+tlContainer.addEventListener('touchstart', e => {
+  cancelAnimationFrame(_rafId);
+  tx0 = e.touches[0].clientX; ts0 = scrollX; _tvx = 0; _tlt = performance.now();
+});
+tlContainer.addEventListener('touchmove', e => {
+  const now = performance.now(), dt = now - _tlt;
+  if (dt > 0) _tvx = (e.touches[0].clientX - tx0) / dt;
+  setScroll(ts0 - (e.touches[0].clientX - tx0));
+  e.preventDefault();
+}, { passive: false });
+tlContainer.addEventListener('touchend', () => {
+  if (Math.abs(_tvx) > 0.1) _startMomentum(-_tvx * 16);
+});
+
+/* ═══════════════════════════════════════════
+   MINIMAP
+═══════════════════════════════════════════ */
+function updateMinimap() {
+  const TW    = totalWidth();
+  const mW    = minimapEl.offsetWidth;
+  const scale = mW / TW;
+  const vpW   = window.innerWidth * scale;
+  const vpL   = scrollX * scale;
+  minimapVp.style.left  = vpL + 'px';
+  minimapVp.style.width = vpW + 'px';
+  drawMinimap(TW, scale);
+}
+
+function drawMinimap(TW, scale) {
+  const canvas = minimapCanvas;
+  const W = minimapEl.offsetWidth;
+  const H = minimapEl.offsetHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const ay  = H * 0.5;
+
+  ctx.clearRect(0, 0, W, H);
+
+  PHASES.forEach(p => {
+    ctx.fillStyle = p.color;
+    ctx.fillRect(yearToX(p.s) * scale, 0, (yearToX(p.e) - yearToX(p.s)) * scale, H);
+  });
+
+  ctx.strokeStyle = 'rgba(26,26,24,0.18)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, ay); ctx.lineTo(W, ay); ctx.stroke();
+
+  // Year marks
+  for (let y = Math.ceil(C.startYear); y <= C.endYear; y += 5) {
+    const x = yearToX(y) * scale;
+    ctx.strokeStyle = 'rgba(26,26,24,0.15)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(x, ay - 4); ctx.lineTo(x, ay + 4); ctx.stroke();
+  }
+
+  EVENTS.forEach(ev => {
+    const td  = TRACKS[ev.track];
+    const x   = (_resolvedCx.get(ev) ?? (yearToX(ev.year) + (ev.xo || 0))) * scale;
+    const off = ev.future ? 4 : 5;
+    const y   = td.side === 'above' ? ay - off : ay + off;
+    ctx.fillStyle = ev.future ? '#C8C3BB' : td.color;
+    ctx.fillRect(x - 2, y - 2, 4, 4);
+  });
+
+  // NOW
+  const nowX = yearToX(2026.22) * scale;
+  ctx.strokeStyle = '#FF2D9B'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(nowX, 0); ctx.lineTo(nowX, H); ctx.stroke();
+
+  // Future
+  const futX = yearToX(2027) * scale;
+  ctx.strokeStyle = 'rgba(26,26,24,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(futX, 0); ctx.lineTo(futX, H); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+minimapEl.addEventListener('click', e => {
+  const r = minimapEl.getBoundingClientRect();
+  const scale = minimapEl.offsetWidth / totalWidth();
+  _smoothScrollTo((e.clientX - r.left) / scale - window.innerWidth / 2);
+});
+
+/* ═══════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════ */
+function init() {
+  render();
+  // Start scroll showing 2016 (just before MFA + practice begins)
+  setScroll(yearToX(2015.5) - 80);
+
+  // Fade hint after 3s
+  setTimeout(() => {
+    const hint = document.getElementById('hint');
+    if (hint) hint.style.opacity = '0';
+  }, 3000);
+}
+
+init();
+window.addEventListener('resize', () => { render(); });
+
+/* ═══════════════════════════════════════════
+   TRACK FILTERS
+═══════════════════════════════════════════ */
+function toggleTrack(track) {
+  if (hiddenTracks.has(track)) hiddenTracks.delete(track);
+  else hiddenTracks.add(track);
+  document.querySelectorAll('.l-item').forEach(btn => {
+    btn.classList.toggle('hidden-track', hiddenTracks.has(btn.dataset.track));
+  });
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   KEYBOARD
+═══════════════════════════════════════════ */
+const _trackOrder = ['education','artwork','exhibition','research','career'];
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  { e.preventDefault(); _smoothScrollTo(scrollX - 420, 320); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); _smoothScrollTo(scrollX + 420, 320); }
+  if (e.key === 'n' || e.key === 'N') scrollToNow();
+  const idx = parseInt(e.key) - 1;
+  if (idx >= 0 && idx <= 4) toggleTrack(_trackOrder[idx]);
+});
+
+/* ═══════════════════════════════════════════
+   TOOLTIP PIN
+═══════════════════════════════════════════ */
+document.getElementById('ttClose').addEventListener('click', () => {
+  tooltipPinned = false;
+  tooltip.classList.remove('pinned', 'show');
+});
+document.addEventListener('click', e => {
+  if (!tooltipPinned) return;
+  if (tooltip.contains(e.target) || e.target.closest('.tl-item')) return;
+  tooltipPinned = false;
+  tooltip.classList.remove('pinned', 'show');
+});
+</script>
+</body>
+</html>
