@@ -410,6 +410,48 @@
       transition: opacity 0.4s;
       z-index: 100;
     }
+
+    /* ─── TOOLTIP CLAMP ──────────────────────── */
+    #tooltip {
+      max-width: min(280px, calc(100vw - 24px));
+    }
+
+    /* ─── MOBILE ─────────────────────────────── */
+    @media (max-width: 640px) {
+      :root { --header-h: 90px; }
+
+      header {
+        flex-wrap: wrap;
+        height: auto;
+        min-height: var(--header-h);
+        padding: 10px 14px 8px;
+        gap: 6px;
+        align-items: center;
+      }
+      .h-sub { display: none; }
+      .h-left { flex-shrink: 0; }
+      .h-right { margin-left: auto; }
+      .legend {
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+        gap: 10px;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+      .legend::-webkit-scrollbar { display: none; }
+      .l-item { flex-shrink: 0; font-size: 0.58rem; }
+      .track-label-fixed { display: none; }
+      .tt-close { display: block !important; }
+    }
+
+    @media (max-width: 400px) {
+      :root { --header-h: 90px; }
+      .h-website { display: none; }
+      .now-btn { font-size: 0.55rem; padding: 3px 9px; }
+    }
   </style>
 </head>
 <body>
@@ -426,7 +468,7 @@
     <button class="l-item" data-track="research"  onclick="toggleTrack('research')" ><div class="l-dot" style="background:var(--c-research)" ></div>Research</button>
     <button class="l-item" data-track="career"    onclick="toggleTrack('career')"   ><div class="l-dot" style="background:var(--c-career)"   ></div>Career</button>
   </div>
-  <div style="display:flex;gap:12px;align-items:center;">
+  <div class="h-right" style="display:flex;gap:12px;align-items:center;">
     <button class="now-btn" onclick="scrollToNow()">● Now</button>
     <a href="https://binyoun.com" target="_blank" class="h-website">binyoun.com ↗</a>
   </div>
@@ -968,7 +1010,8 @@ function render() {
     item.addEventListener('mouseleave', () => { if (!tooltipPinned) tooltip.classList.remove('show'); });
 
     // Click: open link OR pin/unpin tooltip
-    item.addEventListener('mousedown', e => { _mdX = e.clientX; _mdY = e.clientY; });
+    item.addEventListener('mousedown',  e => { _mdX = e.clientX; _mdY = e.clientY; });
+    item.addEventListener('touchstart', e => { _mdX = e.touches[0].clientX; _mdY = e.touches[0].clientY; }, { passive: true });
     item.addEventListener('click', e => {
       if (Math.hypot(e.clientX - _mdX, e.clientY - _mdY) >= 6) return;
       if (ev.link) { window.open(ev.link, '_blank'); return; }
@@ -1005,13 +1048,17 @@ function el(tag, cls, styles) {
 }
 
 function placeTooltip(e) {
-  const W = 280, H = 160;
-  let x = e.clientX + 18, y = e.clientY + 18;
+  const src = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+  const cx = src.clientX, cy = src.clientY;
+  const TW = Math.min(280, window.innerWidth - 24);
+  const TH = tooltip.offsetHeight || 220;
   const mmH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--minimap-h')) || 82;
-  if (x + W > window.innerWidth - 8)  x = e.clientX - W - 18;
-  if (y + H > window.innerHeight - mmH - 8) y = e.clientY - H - 18;
-  tooltip.style.left = x + 'px';
-  tooltip.style.top  = y + 'px';
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let x = cx + 18, y = cy + 18;
+  if (x + TW > vw - 8)       x = cx - TW - 18;
+  if (y + TH > vh - mmH - 8) y = cy - TH - 18;
+  tooltip.style.left = Math.max(8, Math.min(x, vw - TW - 8)) + 'px';
+  tooltip.style.top  = Math.max(8, Math.min(y, vh - mmH - TH - 8)) + 'px';
 }
 
 /* ═══════════════════════════════════════════
