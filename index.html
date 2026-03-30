@@ -503,7 +503,6 @@ const C = {
   endYear:   2036,
   padLeft:   160,
   padRight:  220,
-  axisRatio: 0.46,   // axis Y as fraction of container height
 };
 
 const PHASES = [
@@ -845,7 +844,15 @@ function containerH() {
 }
 
 function axisY() {
-  return containerH() * C.axisRatio;
+  const CH = containerH();
+  // Compute ideal axis position proportional to actual track extents
+  const aboveTracks = Object.values(TRACKS).filter(t => t.side === 'above');
+  const belowTracks = Object.values(TRACKS).filter(t => t.side === 'below');
+  const maxAbove = Math.max(...aboveTracks.map(t => t.offset));          // 270
+  const maxBelow = Math.max(...belowTracks.map(t => t.offset)) + CARD_H; // 185+54=239
+  const ideal = CH * (maxAbove / (maxAbove + maxBelow));
+  // Clamp: never let education get cut by header, never let career overflow into minimap
+  return Math.max(maxAbove + 14, Math.min(CH - maxBelow - 14, ideal));
 }
 
 function headerH() {
